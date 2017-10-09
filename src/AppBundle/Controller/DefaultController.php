@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Request;
 class DefaultController extends Controller
 {
     /**
-     * @Route("/synfo help", name="homepage")
+     * @Route("/synfo_help", name="homepage")
      */
     public function synfoHelpAction(Request $request)
     {

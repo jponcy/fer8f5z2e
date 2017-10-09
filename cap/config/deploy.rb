@@ -32,6 +32,13 @@ set :repo_url, 'jonathan@127.0.0.1:/home/jonathan/temp/testTP/git'
 # Default value for keep_releases is 5
 # set :keep_releases, 5
 
+def symfony(command, *parameters)
+  # params = [parameters].flatten
+  # linea = [:php, 'app/console', command, *params]
+  # execute(*linea)
+  execute :php, 'app/console', command, *parameters
+end
+
 namespace :deploy do
   after :updated, :composer do
     on roles(:web) do
@@ -48,12 +55,21 @@ namespace :deploy do
         error = '> /dev/null 2>&1 &'
 
         %w[stop start].each do |command|
-          execute :php, 'app/console', "server:#{command}", host, error
+          symfony "server:#{command}", host, error
           sleep 1
         end
 
-        logger = SSHKit.config.output
-        logger.info "Server should be available on: #{host}"
+        SSHKit.config.output.info "Server should be available on: #{host}"
+      end
+    end
+  end
+
+  after :updated, :db do
+    on roles(:db) do
+      within release_path do
+        symfony 'doctrine:database:drop', '--force', '-q'
+        symfony 'doctrine:database:create', '-n'
+        symfony 'doctrine:fixture:load', '-n'
       end
     end
   end
