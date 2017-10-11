@@ -2,13 +2,14 @@
 lock '3.7.2'
 
 set :application, 'Lister'
-set :repo_url, 'jonathan@127.0.0.1:/home/jonathan/temp/testTP/git'
+set :repo_url, 'https://github.com/jponcy/fer8f5z2e.git'
+# set :repo_url, 'jonathan@127.0.0.1:/home/jonathan/temp/testTP/git'
 
 # Default branch is :master
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
 
 # Default deploy_to directory is /var/www/my_app_name
-# set :deploy_to, '/var/www/my_app_name'
+set :deploy_to, '$HOME/symfony/Lister'
 
 # Default value for :format is :airbrussh.
 # set :format, :airbrussh
@@ -22,6 +23,7 @@ set :repo_url, 'jonathan@127.0.0.1:/home/jonathan/temp/testTP/git'
 
 # Default value for :linked_files is []
 # append :linked_files, 'config/database.yml', 'config/secrets.yml'
+append :linked_files, 'app/config/parameters.yml'
 
 # Default value for linked_dirs is []
 # append :linked_dirs, 'log', 'tmp/pids', 'tmp/cache', 'tmp/sockets', 'public/system'
@@ -30,47 +32,10 @@ set :repo_url, 'jonathan@127.0.0.1:/home/jonathan/temp/testTP/git'
 # set :default_env, { path: '/opt/ruby/bin:$PATH' }
 
 # Default value for keep_releases is 5
-# set :keep_releases, 5
-
-def symfony(command, *parameters)
-  # params = [parameters].flatten
-  # linea = [:php, 'app/console', command, *params]
-  # execute(*linea)
-  execute :php, 'app/console', command, *parameters
-end
+set :keep_releases, 3
 
 namespace :deploy do
-  after :updated, :composer do
-    on roles(:web) do
-      within release_path do
-        execute :composer, :install, '--optimize-autoloader'
-      end
-    end
-  end
+  before 'check:linked_files', 'symfony:parameters'
 
-  after :updated, :run do
-    on roles(:web) do
-      within release_path do
-        host = '127.0.0.1:8099'
-        error = '> /dev/null 2>&1 &'
-
-        %w[stop start].each do |command|
-          symfony "server:#{command}", host, error
-          sleep 1
-        end
-
-        SSHKit.config.output.info "Server should be available on: #{host}"
-      end
-    end
-  end
-
-  after :updated, :db do
-    on roles(:db) do
-      within release_path do
-        symfony 'doctrine:database:drop', '--force', '-q'
-        symfony 'doctrine:database:create', '-n'
-        symfony 'doctrine:fixture:load', '-n'
-      end
-    end
-  end
+  after :updated, 'php:composer:install'
 end

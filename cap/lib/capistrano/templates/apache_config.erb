@@ -1,0 +1,30 @@
+<VirtualHost *:80>
+    <%- set app = fetch(:application).downcase -%>
+    ServerName <%= app %>.fr
+
+    AddHandler php-cgi .php
+    Action php-cgi /cgi-bin-php/php-cgi-7.0.9-1
+
+    DocumentRoot <%= fetch(:location) %>/web
+    DirectoryIndex app.php
+
+    LogLevel info
+
+    ErrorLog /var/log/apache2/<%= app %>-web-error.log
+    CustomLog /var/log/apache2/<%= app %>-web-access.log combined
+
+    <Directory "<%= fetch(:location) %>/web">
+        Require all granted
+        AllowOverride none
+        Order allow,deny
+        Allow from All
+
+        Options Indexes FollowSymLinks MultiViews
+
+        <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteRule ^(.*)$ /app.php [QSA,L]
+        </IfModule>
+     </Directory>
+</VirtualHost>

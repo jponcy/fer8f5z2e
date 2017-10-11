@@ -62,3 +62,8 @@ server '127.0.0.1', user: 'jonathan', roles: %w[app db web]
 #     auth_methods: %w(publickey password)
 #     # password: 'please use keys'
 #   }
+
+namespace :deploy do
+  after :updated, :'symfony:init_database'
+  after :updated, :'symfony:embeded_server'
+end
