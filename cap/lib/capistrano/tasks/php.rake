@@ -22,16 +22,29 @@ namespace :php do
         end
 
         home = "/home/#{capture(:whoami)}"
-        location = fetch(:deploy_to).sub(/^\$HOME/, home)
+        location = release_path.sub(/^\$HOME/, home)
         set :location, location
 
         apache = ERB.new(erb, nil, '-').result(binding)
-        set :app, fetch(:application).downcase
+        app = fetch(:application).downcase
+        set :app, app
 
-        temp_path = '/tmp/apache_config'
-        upload! StringIO.new apache, temp_path
-        dest_path = "/etc/apache/site-available/#{fetch(:app)}"
-        execute :sudo, :mv, temp_path, dest_path
+        within '/etc/apache2/sites-available/' do
+          temp_path = '/tmp/apache_config'
+          dest_path = "#{app}.conf"
+
+          upload! StringIO.new(apache), temp_path
+
+          execute :chmod, '644', temp_path
+          execute :sudo, :mv, temp_path, dest_path
+        end
+
+        # TODO: Check our isn't already active.
+        # TODO: Disallow all actives.
+
+        # Active our.
+        execute :sudo, :a2ensite, app
+        execute :sudo, :service, :apache2, :restart
       end
     end
   end

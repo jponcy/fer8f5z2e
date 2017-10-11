@@ -1,6 +1,8 @@
 require 'erb'
 
 namespace :symfony do
+  ERROR_DB = 'Unknown DB type, please change SGBDr or upgrade this task'.freeze
+
   def symfony(command, *parameters)
     # params = [parameters].flatten
     # linea = [:php, 'app/console', command, *params]
@@ -29,12 +31,29 @@ namespace :symfony do
     end
   end
 
-  desc 'Regen DB with fixtures'
-  task :init_database do
+  desc 'Drop database'
+  task :drop_database do
+    # Should forbide for production environment
     on roles(:db) do
       within release_path do
         symfony 'doctrine:database:drop', '--force', '-q'
+      end
+    end
+  end
+
+  desc 'Creates empty database if not exists'
+  task :create_empty_db do
+    on roles(:db) do
+      within release_path do
         symfony 'doctrine:database:create', '-n'
+      end
+    end
+  end
+
+  desc 'Regen DB with fixtures'
+  task init_database: %i[drop_database create_empty_db] do
+    on roles(:db) do
+      within release_path do
         symfony 'doctrine:schema:create'
         symfony 'doctrine:fixture:load', '-n'
       end
@@ -45,7 +64,8 @@ namespace :symfony do
   task :rights do
     on roles(:web) do
       within release_path do
-        http_user = capture("ps aux | grep -E '[a]pache|[h]ttpd|[_]www|[w]ww-data|[n]ginx' | grep -v root | head -1 | cut -d\\  -f1")
+        # http_user = capture("ps aux | grep -E '[a]pache|[h]ttpd|[_]www|[w]ww-data|[n]ginx' | grep -v root | head -1 | cut -d\\  -f1")
+        http_user = 'www-data'
 
         sudo :setfacl, '-R', '-m', "u:'#{http_user}':rwX -m u:`whoami`:rwX app/cache app/logs"
         sudo :setfacl, "-dR -m u:'#{http_user}':rwX -m u:`whoami`:rwX app/cache app/logs"
@@ -58,6 +78,32 @@ namespace :symfony do
     on roles(:web) do
       within release_path do
         symfony 'cache:clear', '-e', 'prod'
+      end
+    end
+  end
+
+  desc 'Create manually the database'
+  task :create_db_manually do
+    on roles(:db) do
+      within shared_path do
+        dist_path = 'app/config/parameters.yml'
+        db_params = {}
+
+        parameters = capture(:cat, dist_path)
+        parameters = parameters.scan(/^\s+\b(\w+)\s*:\s*(.+?)\s*$/)
+
+        parameters.each do |key, value|
+          db_params[key.to_sym] = value if /^database_/ =~ key
+        end
+
+        driver = db_params[:database_driver] || 'pdo_mysql'
+        db_name = db_params[:database_name]
+        raise ERROR_DB unless driver == 'pdo_mysql'
+
+        execute :mysql,
+                '-u', db_params[:database_user],
+                "-p#{db_params[:database_password]}",
+                '-e', "\"CREATE DATABASE IF NOT EXISTS #{db_name}\""
       end
     end
   end
